@@ -1,0 +1,303 @@
+AT_BANNER([OVN northd])
+AT_SETUP([ovn -- check Gateway_Chassis propagation from NBDB to SBDB])
+AT_SKIP_IF([test $HAVE_PYTHON = no])
+ovn_start
+
+ovn-nbctl create Logical_Router name=R1
+ovn-sbctl chassis-add gw1 geneve 127.0.0.1
+ovn-sbctl chassis-add gw2 geneve 1.2.4.8
+
+# Connect alice to R1 as distributed router gateway port on hv2
+ovn-nbctl lrp-add R1 alice 00:00:02:01:02:03 172.16.1.1/24
+
+ovn-nbctl --wait=sb \
+    --id=@gc0 create Gateway_Chassis name=alice_gw1 \
+                                     chassis_name=gw1 \
+                                     priority=20 -- \
+    --id=@gc1 create Gateway_Chassis name=alice_gw2 \
+                                     chassis_name=gw2 \
+                                     priority=10 -- \
+    set Logical_Router_Port alice 'gateway_chassis=[@gc0,@gc1]'
+
+nb_gwc1_uuid=`ovn-nbctl --bare --columns _uuid find Gateway_Chassis name="alice_gw1"`
+gwc1_uuid=`ovn-sbctl --bare --columns _uuid find Gateway_Chassis name="alice_gw1"`
+gwc2_uuid=`ovn-sbctl --bare --columns _uuid find Gateway_Chassis name="alice_gw2"`
+
+
+echo "Port_Binding for cr-alice:"
+ovn-sbctl find port_binding logical_port="cr-alice"
+echo "Gateway_Chassis list:"
+ovn-sbctl list Gateway_Chassis
+
+AT_CHECK([ovn-sbctl --bare --columns gateway_chassis find port_binding logical_port="cr-alice" | grep $gwc1_uuid | wc -l], [0], [1
+])
+AT_CHECK([ovn-sbctl --bare --columns gateway_chassis find port_binding logical_port="cr-alice" | grep $gwc2_uuid | wc -l], [0], [1
+])
+
+# delete the 2nd Gateway_Chassis on NBDB for alice port
+
+ovn-nbctl --wait=sb set Logical_Router_Port alice gateway_chassis=${nb_gwc1_uuid}
+
+gwc1_uuid=`ovn-sbctl --bare --columns _uuid find Gateway_Chassis name="alice_gw1"`
+
+AT_CHECK([ovn-sbctl --bare --columns gateway_chassis find port_binding logical_port="cr-alice" | grep $gwc1_uuid | wc -l], [0], [1
+])
+
+AT_CHECK([ovn-sbctl find Gateway_Chassis name=alice_gw2], [0], [])
+
+# delete all the gateway_chassis on NBDB for alice port
+
+ovn-nbctl --wait=sb clear Logical_Router_Port alice gateway_chassis
+
+# expect that the Gateway_Chassis doesn't exist anymore
+
+AT_CHECK([ovn-sbctl find Gateway_Chassis name=alice_gw1], [0], [])
+AT_CHECK([ovn-sbctl find Gateway_Chassis name=alice_gw2], [0], [])
+
+AT_CLEANUP
+
+AT_SETUP([ovn -- check Gateway_Chassis propagation from NBDB to SBDB backwards compatibility])
+AT_SKIP_IF([test $HAVE_PYTHON = no])
+ovn_start
+
+ovn-nbctl create Logical_Router name=R1
+ovn-sbctl chassis-add gw1 geneve 127.0.0.1
+ovn-sbctl chassis-add gw2 geneve 1.2.4.8
+
+ovn-nbctl --wait=sb lrp-add R1 bob 00:00:02:01:02:03 172.16.1.1/24 \
+    -- set Logical_Router_Port bob options:redirect-chassis="gw1"
+
+
+# It should be converted to Gateway_Chassis entries in SBDB, and
+# still redirect-chassis is kept for backwards compatibility
+
+gwc1_uuid=`ovn-sbctl --bare --columns _uuid find Gateway_Chassis name="bob_gw1"`
+
+AT_CHECK([ovn-sbctl --bare --columns gateway_chassis find port_binding logical_port="cr-bob" | grep $gwc1_uuid | wc -l], [0], [1
+])
+
+ovn-nbctl --wait=sb remove Logical_Router_Port bob options redirect-chassis
+
+# expect that the Gateway_Chassis doesn't exist anymore
+
+AT_CHECK([ovn-sbctl find Gateway_Chassis name=bob_gw1], [0], [])
+
+AT_CLEANUP
+
+AT_SETUP([ovn -- check up state of VIF LSP])
+AT_SKIP_IF([test $HAVE_PYTHON = no])
+ovn_start
+
+ovn-nbctl ls-add S1
+ovn-nbctl lsp-add S1 S1-vm1
+AT_CHECK([test x`ovn-nbctl lsp-get-up S1-vm1` = xdown])
+
+ovn-sbctl chassis-add hv1 geneve 127.0.0.1
+ovn-sbctl lsp-bind S1-vm1 hv1
+AT_CHECK([test x`ovn-nbctl lsp-get-up S1-vm1` = xup])
+
+AT_CLEANUP
+
+AT_SETUP([ovn -- check up state of router LSP linked to a distributed LR])
+AT_SKIP_IF([test $HAVE_PYTHON = no])
+ovn_start
+
+ovn-nbctl lr-add R1
+ovn-nbctl lrp-add R1 R1-S1 02:ac:10:01:00:01 172.16.1.1/24
+
+ovn-nbctl ls-add S1
+ovn-nbctl lsp-add S1 S1-R1
+ovn-nbctl lsp-set-type S1-R1 router
+ovn-nbctl lsp-set-addresses S1-R1 02:ac:10:01:00:01
+ovn-nbctl lsp-set-options S1-R1 router-port=R1-S1
+AT_CHECK([test x`ovn-nbctl lsp-get-up S1-R1` = xup])
+
+AT_CLEANUP
+
+AT_SETUP([ovn -- check up state of router LSP linked to a gateway LR])
+AT_SKIP_IF([test $HAVE_PYTHON = no])
+ovn_start
+
+ovn-sbctl chassis-add gw1 geneve 127.0.0.1
+
+ovn-nbctl create Logical_Router name=R1 options:chassis=gw1
+ovn-nbctl lrp-add R1 R1-S1 02:ac:10:01:00:01 172.16.1.1/24
+
+ovn-nbctl ls-add S1
+ovn-nbctl lsp-add S1 S1-R1
+ovn-nbctl lsp-set-type S1-R1 router
+ovn-nbctl lsp-set-addresses S1-R1 02:ac:10:01:00:01
+ovn-nbctl lsp-set-options S1-R1 router-port=R1-S1
+
+ovn-sbctl lsp-bind S1-R1 gw1
+AT_CHECK([test x`ovn-nbctl lsp-get-up S1-R1` = xup])
+
+AT_CLEANUP
+
+AT_SETUP([ovn -- check up state of router LSP linked to an LRP with set Gateway Chassis])
+AT_SKIP_IF([test $HAVE_PYTHON = no])
+ovn_start
+
+ovn-sbctl chassis-add gw1 geneve 127.0.0.1
+
+ovn-nbctl lr-add R1
+ovn-nbctl lrp-add R1 R1-S1 02:ac:10:01:00:01 172.16.1.1/24
+ovn-nbctl lrp-set-gateway-chassis R1-S1 gw1
+
+ovn-nbctl ls-add S1
+ovn-nbctl lsp-add S1 S1-R1
+ovn-nbctl lsp-set-type S1-R1 router
+ovn-nbctl lsp-set-addresses S1-R1 router
+ovn-nbctl lsp-set-options S1-R1 router-port=R1-S1
+AT_CHECK([test x`ovn-nbctl lsp-get-up S1-R1` = xup])
+
+AT_CLEANUP
+
+AT_SETUP([ovn -- check IPv6 RA config propagation to SBDB])
+ovn_start
+
+ovn-nbctl lr-add ro
+ovn-nbctl lrp-add ro ro-sw 00:00:00:00:00:01 aef0:0:0:0:0:0:0:1/64
+ovn-nbctl ls-add sw
+ovn-nbctl lsp-add sw sw-ro
+ovn-nbctl lsp-set-type sw-ro router
+ovn-nbctl lsp-set-options sw-ro router-port=ro-sw
+ovn-nbctl lsp-set-addresses sw-ro 00:00:00:00:00:01
+ovn-nbctl set Logical_Router_Port ro-sw ipv6_ra_configs:send_periodic=true
+ovn-nbctl set Logical_Router_Port ro-sw ipv6_ra_configs:address_mode=slaac
+ovn-nbctl --wait=sb set Logical_Router_Port ro-sw ipv6_ra_configs:mtu=1280
+
+uuid=$(ovn-sbctl --columns=_uuid --bare find Port_Binding logical_port=ro-sw)
+
+AT_CHECK([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_send_periodic],
+[0], ["true"
+])
+AT_CHECK([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_address_mode],
+[0], [slaac
+])
+AT_CHECK([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_max_interval],
+[0], ["600"
+])
+AT_CHECK([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_min_interval],
+[0], ["200"
+])
+AT_CHECK([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_mtu],
+[0], ["1280"
+])
+AT_CHECK([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_src_eth],
+[0], ["00:00:00:00:00:01"
+])
+AT_CHECK([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_src_addr],
+[0], ["fe80::200:ff:fe00:1"
+])
+AT_CHECK([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_prefixes],
+[0], ["aef0::/64"
+])
+
+ovn-nbctl set Logical_Router_Port ro-sw ipv6_ra_configs:max_interval=300
+ovn-nbctl --wait=sb set Logical_Router_Port ro-sw ipv6_ra_configs:min_interval=600
+
+AT_CHECK([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_max_interval],
+[0], ["300"
+])
+AT_CHECK([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_min_interval],
+[0], ["225"
+])
+
+ovn-nbctl set Logical_Router_Port ro-sw ipv6_ra_configs:max_interval=300
+ovn-nbctl --wait=sb set Logical_Router_Port ro-sw ipv6_ra_configs:min_interval=250
+
+AT_CHECK([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_max_interval],
+[0], ["300"
+])
+AT_CHECK([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_min_interval],
+[0], ["225"
+])
+
+ovn-nbctl set Logical_Router_Port ro-sw ipv6_ra_configs:max_interval=0
+ovn-nbctl --wait=sb set Logical_Router_Port ro-sw ipv6_ra_configs:min_interval=0
+
+AT_CHECK([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_max_interval],
+[0], ["4"
+])
+AT_CHECK([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_min_interval],
+[0], ["3"
+])
+
+ovn-nbctl set Logical_Router_Port ro-sw ipv6_ra_configs:max_interval=3600
+ovn-nbctl --wait=sb set Logical_Router_Port ro-sw ipv6_ra_configs:min_interval=2400
+
+AT_CHECK([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_max_interval],
+[0], ["1800"
+])
+AT_CHECK([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_min_interval],
+[0], ["1350"
+])
+
+ovn-nbctl --wait=sb set Logical_Router_port ro-sw ipv6_ra_configs:send_periodic=false
+
+AT_CHECK_UNQUOTED([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_send_periodic],
+[1], [], [ovn-sbctl: no key "ipv6_ra_send_periodic" in Port_Binding record "${uuid}" column options
+])
+AT_CHECK_UNQUOTED([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_max_interval],
+[1], [], [ovn-sbctl: no key "ipv6_ra_max_interval" in Port_Binding record "${uuid}" column options
+])
+AT_CHECK_UNQUOTED([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_min_interval],
+[1], [], [ovn-sbctl: no key "ipv6_ra_min_interval" in Port_Binding record "${uuid}" column options
+])
+AT_CHECK_UNQUOTED([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_mtu],
+[1], [], [ovn-sbctl: no key "ipv6_ra_mtu" in Port_Binding record "${uuid}" column options
+])
+AT_CHECK_UNQUOTED([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_address_mode],
+[1], [], [ovn-sbctl: no key "ipv6_ra_address_mode" in Port_Binding record "${uuid}" column options
+])
+AT_CHECK_UNQUOTED([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_src_eth],
+[1], [], [ovn-sbctl: no key "ipv6_ra_src_eth" in Port_Binding record "${uuid}" column options
+])
+AT_CHECK_UNQUOTED([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_src_addr],
+[1], [], [ovn-sbctl: no key "ipv6_ra_src_addr" in Port_Binding record "${uuid}" column options
+])
+AT_CHECK_UNQUOTED([ovn-sbctl get Port_Binding ${uuid} options:ipv6_ra_prefixes],
+[1], [], [ovn-sbctl: no key "ipv6_ra_prefixes" in Port_Binding record "${uuid}" column options
+])
+
+AT_CLEANUP
+
+AT_SETUP([ovn -- test unixctl])
+ovn_init_db ovn-sb; ovn-sbctl init
+ovn_init_db ovn-nb; ovn-nbctl init
+
+# test unixctl option
+mkdir "$ovs_base"/northd
+as northd start_daemon ovn-northd --unixctl="$ovs_base"/northd/ovn-northd.ctl --ovnnb-db=unix:"$ovs_base"/ovn-nb/ovn-nb.sock --ovnsb-db=unix:"$ovs_base"/ovn-sb/ovn-sb.sock
+ovn-nbctl ls-add sw
+ovn-nbctl --wait=sb lsp-add sw p1
+# northd created with unixctl option successfully created port_binding entry
+AT_CHECK([ovn-sbctl --bare --columns datapath find port_binding logical_port="p1" | wc -l], [0], [1
+])
+AT_CHECK([ovn-nbctl --wait=sb lsp-del p1])
+
+# ovs-appctl exit with unixctl option
+OVS_APP_EXIT_AND_WAIT_BY_TARGET(["$ovs_base"/northd/ovn-northd.ctl], ["$ovs_base"/northd/ovn-northd.pid])
+
+# Check no port_binding entry for new port as ovn-northd is not running
+ovn-nbctl lsp-add sw p2
+ovn-nbctl --timeout=10 --wait=sb sync
+AT_CHECK([ovn-sbctl --bare --columns datapath find port_binding logical_port="p2" | wc -l], [0], [0
+])
+
+# test default unixctl path
+as northd start_daemon ovn-northd --ovnnb-db=unix:"$ovs_base"/ovn-nb/ovn-nb.sock --ovnsb-db=unix:"$ovs_base"/ovn-sb/ovn-sb.sock
+ovn-nbctl --wait=sb lsp-add sw p3
+# northd created with default unixctl path successfully created port_binding entry
+AT_CHECK([ovn-sbctl --bare --columns datapath find port_binding logical_port="p3" | wc -l], [0], [1
+])
+
+as ovn-sb
+OVS_APP_EXIT_AND_WAIT([ovsdb-server])
+as ovn-nb
+OVS_APP_EXIT_AND_WAIT([ovsdb-server])
+as northd
+OVS_APP_EXIT_AND_WAIT([ovn-northd])
+
+AT_CLEANUP
