@@ -1794,7 +1794,6 @@ parse_ofp_group_mod_str__(struct ofputil_group_mod *gm, int command,
                 error = xasprintf("invalid wrr parameter %s", value);
                 goto out;
             }
-            had_wrr = true;            
         } else if (!strcmp(name, "random")) {
             if (!strcmp(value, "true")) {
                 technique = 4;
@@ -1804,7 +1803,6 @@ parse_ofp_group_mod_str__(struct ofputil_group_mod *gm, int command,
                 error = xasprintf("invalid log parameter %s", value);
                 goto out;
             }
-            had_random = true;
         } else {
             error = xasprintf("unknown keyword %s", name);
             goto out;
