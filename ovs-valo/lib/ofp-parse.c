@@ -42,6 +42,8 @@
 #include "socket-util.h"
 #include "util.h"
 
+technique = 0; // ovs 
+
 /* Parses 'str' as an 8-bit unsigned integer into '*valuep'.
  *
  * 'name' describes the value parsed in an error message, if any.
@@ -1576,14 +1578,6 @@ parse_ofp_group_mod_str__(struct ofputil_group_mod *gm, int command,
     struct ofputil_bucket *bucket;
     char *error = NULL;
 
-    /* VALO-OVS: Add group rule parsing code for valo,log enable parameters */
-    bool had_valo = false;
-    bool had_log = false;
-    bool had_wcmp = false;
-    bool had_wrr = false;
-    bool had_random = false;
-    bool had_ecmp = false;
-
     *usable_protocols = OFPUTIL_P_OF11_UP;
 
     if (command == -2) {
@@ -1775,91 +1769,46 @@ parse_ofp_group_mod_str__(struct ofputil_group_mod *gm, int command,
         /* VALO-OVS: Add group rule parsing code for valo,log enable parameters */
         } else if (!strcmp(name, "valo")) {
             if (!strcmp(value, "true")) {
-                gm->valo = true;
+                technique = 1;
             } else if (!strcmp(value, "false")) {
-                gm->valo = false;
+                // empty
             } else {
                 error = xasprintf("invalid valo parameter %s", value);
                 goto out;
             }
-            had_valo = true;
         } else if (!strcmp(name, "wcmp")) {
             if (!strcmp(value, "true")) {
-                gm->wcmp = true;
+                technique = 2;
             } else if (!strcmp(value, "false")) {
-                gm->wcmp = false;
+                // empty
             } else {
                 error = xasprintf("invalid wcmp parameter %s", value);
                 goto out;
             }
-            had_wcmp = true;
         } else if (!strcmp(name, "wrr")) {
             if (!strcmp(value, "true")) {
-                gm->wrr = true;
+                technique = 3;
             } else if (!strcmp(value, "false")) {
-                gm->wrr = false;
+                // empty
             } else {
                 error = xasprintf("invalid wrr parameter %s", value);
                 goto out;
             }
             had_wrr = true;            
-        }  else if (!strcmp(name, "log")) {
+        } else if (!strcmp(name, "random")) {
             if (!strcmp(value, "true")) {
-                gm->log = true;
+                technique = 4;
             } else if (!strcmp(value, "false")) {
-                gm->log = false;
-            } else {
-                error = xasprintf("invalid log parameter %s", value);
-                goto out;
-            }
-            had_log = true;
-
-        }  else if (!strcmp(name, "random")) {
-            if (!strcmp(value, "true")) {
-                gm->random = true;
-            } else if (!strcmp(value, "false")) {
-                gm->random = false;
+                // empty
             } else {
                 error = xasprintf("invalid log parameter %s", value);
                 goto out;
             }
             had_random = true;
-        }
-        else if (!strcmp(name, "ecmp")) {
-            if (!strcmp(value, "true")) {
-                gm->ecmp = true;
-            } else if (!strcmp(value, "false")) {
-                gm->ecmp = false;
-            } else {
-                error = xasprintf("invalid log parameter %s", value);
-                goto out;
-            }
-            had_ecmp = true;
-        }
-        else {
+        } else {
             error = xasprintf("unknown keyword %s", name);
             goto out;
         }
-    }
-
-    /* VALO-OVS: Add group rule parsing code for valo,log enable parameters */
-    if (!had_valo) {
-        gm->valo = false;
-    }
-    if (!had_wcmp) {
-        gm->wcmp = false;
-    }
-    if (!had_log) {
-        gm->log = false;
-    }
-    if (!had_random){
-        gm->random = false;
-    }
-    if (!had_ecmp){
-        gm->ecmp = false;
-    }
-    if (!had_wrr) {
-        gm->wrr = false;
     }
 
     if (gm->group_id == OFPG_ANY) {
