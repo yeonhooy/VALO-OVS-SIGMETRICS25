@@ -66,6 +66,7 @@
 #include "tunnel.h"
 #include "util.h"
 #include "uuid.h"
+#include "ofp-parse.h"
 
 COVERAGE_DEFINE(xlate_actions);
 COVERAGE_DEFINE(xlate_actions_oversize);
@@ -1769,20 +1770,66 @@ group_best_live_bucket(const struct xlate_ctx *ctx,
                        const struct group_dpif *group,
                        uint32_t basis)
 {
-    struct ofputil_bucket *best_bucket = NULL;
-    uint32_t best_score = 0;
-
-    struct ofputil_bucket *bucket;
-    LIST_FOR_EACH (bucket, list_node, &group->up.buckets) {
-        if (bucket_is_alive(ctx, bucket, 0)) {
-            uint32_t score =
-                (hash_int(bucket->bucket_id, basis) & 0xffff) * bucket->weight;
-            if (score >= best_score) {
-                best_bucket = bucket;
-                best_score = score;
+    FILE * fptr = fopen("/home/libera1/hwiju/VALO/script-upload/technique_test.txt","a");
+    fprintf(fptr, "selected technique %d \n", technique);
+    fclose(fptr);
+    if (technique == 3){
+        struct ofputil_bucket *best_bucket = NULL;
+        struct ofputil_bucket *bucket;
+    
+        if (!ovs_list_is_empty(&group->table)) {
+            table_node_t * cur;
+            LIST_FOR_EACH(cur, list_node, &group->table) {
+                if (cur->key == basis) {
+                    return cur->bucket;
+                }
+            }
+        }
+        bool selected = false;
+        LIST_FOR_EACH(bucket, list_node, &group->up.buckets) {
+            if (bucket_is_alive(ctx, bucket, 0)) {
+                if (!selected && bucket->select_count < bucket->weight) {
+                    best_bucket = bucket;
+                    bucket->select_count++;
+                    selected = true;
+                }
+            }
+        }
+        
+        if (!best_bucket) {
+            LIST_FOR_EACH(bucket, list_node, &group->up.buckets) {
+                if (bucket_is_alive(ctx, bucket, 0)) {
+                    bucket->select_count = 0;
+                    if (!selected) {
+                        best_bucket = bucket;
+                        bucket->select_count++;
+                        selected = true;
+                    }
+                }
+            }
+        }
+    
+        if (best_bucket){      
+            add_table_node(group, basis, best_bucket);
+        }
+    }
+    else {
+        struct ofputil_bucket *best_bucket = NULL;
+        uint32_t best_score = 0;
+    
+        struct ofputil_bucket *bucket;
+        LIST_FOR_EACH (bucket, list_node, &group->up.buckets) {
+            if (bucket_is_alive(ctx, bucket, 0)) {
+                uint32_t score =
+                    (hash_int(bucket->bucket_id, basis) & 0xffff) * bucket->weight;
+                if (score >= best_score) {
+                    best_bucket = bucket;
+                    best_score = score;
+                }
             }
         }
     }
+
     return best_bucket;
 }
 
