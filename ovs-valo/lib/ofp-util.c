@@ -9150,7 +9150,7 @@ ofputil_append_ofp11_group_desc_reply(const struct ofputil_group_desc *gds,
     start_ogds = reply->size;
     ofpbuf_put_zeros(reply, sizeof *ogds);
     LIST_FOR_EACH (bucket, list_node, buckets) {
-        ofputil_put_ofp11_bucket(bucket, reply, version, false);
+        ofputil_put_ofp11_bucket(bucket, reply, version);
     }
     ogds = ofpbuf_at_assert(reply, start_ogds, sizeof *ogds);
     ogds->length = htons(reply->size - start_ogds);
