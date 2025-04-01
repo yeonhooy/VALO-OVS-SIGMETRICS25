@@ -120,6 +120,13 @@ rule_dpif_is_internal(const struct rule_dpif *rule)
 
 /* Groups. */
 
+/* wrr */
+typedef struct table_node {
+    uint32_t key;                
+    struct ofputil_bucket *bucket;     
+    struct ovs_list list_node; 
+} table_node_t;
+
 struct group_dpif {
     struct ofgroup up;
 
@@ -130,6 +137,8 @@ struct group_dpif {
     struct ovs_mutex stats_mutex;
     uint64_t packet_count OVS_GUARDED;  /* Number of packets received. */
     uint64_t byte_count OVS_GUARDED;    /* Number of bytes received. */
+    /* wrr */
+    struct ovs_list table;
 };
 
 void group_dpif_credit_stats(struct group_dpif *,
