@@ -33,7 +33,7 @@ def flowGenerator (network, port, flowsPerPair):
         line = 'server %s %s' % (serverIp, port)
         configLines.append (line)
 
-        cdf = 'temp_CDF.txt' # originally DCTCP_CDF
+        cdf = 'temp_CDF.txt' 
         line = 'req_size_dist TrafficGenerator/conf/%s' % cdf
         configLines.append (line)
 
