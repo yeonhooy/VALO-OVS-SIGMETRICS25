@@ -66,7 +66,7 @@
 #include "tunnel.h"
 #include "util.h"
 #include "uuid.h"
-#include "ofp-parse.h"
+#include "include/openvswitch/ofp-parse.h"
 
 COVERAGE_DEFINE(xlate_actions);
 COVERAGE_DEFINE(xlate_actions_oversize);
