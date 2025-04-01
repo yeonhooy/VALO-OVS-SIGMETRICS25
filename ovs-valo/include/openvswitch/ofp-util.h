@@ -1257,7 +1257,8 @@ struct ofputil_bucket {
     struct ofpact *ofpacts;     /* Series of "struct ofpact"s. */
     size_t ofpacts_len;         /* Length of ofpacts, in bytes. */
     
-   
+    /*wrr*/
+    uint32_t select_count;  
 
     struct bucket_counter stats;
 };
@@ -1281,14 +1282,6 @@ struct ofputil_group_mod {
                                    * execution.*/
     struct ovs_list buckets;      /* Contains "struct ofputil_bucket"s. */
     struct ofputil_group_props props; /* Group properties. */
-
-    /* VALO-OVS: valo,log enable parameters */
-    bool valo;
-    bool wcmp;
-    bool wrr;
-    bool log;
-    bool random;
-    bool ecmp;
 };
 
 /* Group stats reply, independent of protocol. */
