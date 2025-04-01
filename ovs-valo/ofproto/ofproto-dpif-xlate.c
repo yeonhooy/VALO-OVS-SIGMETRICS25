@@ -1773,10 +1773,9 @@ group_best_live_bucket(const struct xlate_ctx *ctx,
     FILE * fptr = fopen("/home/libera1/hwiju/VALO/script-upload/technique_test.txt","a");
     fprintf(fptr, "selected technique %d \n", technique);
     fclose(fptr);
+    struct ofputil_bucket *best_bucket = NULL;
     if (technique == 3){
-        struct ofputil_bucket *best_bucket = NULL;
         struct ofputil_bucket *bucket;
-    
         if (!ovs_list_is_empty(&group->table)) {
             table_node_t * cur;
             LIST_FOR_EACH(cur, list_node, &group->table) {
@@ -1814,7 +1813,6 @@ group_best_live_bucket(const struct xlate_ctx *ctx,
         }
     }
     else {
-        struct ofputil_bucket *best_bucket = NULL;
         uint32_t best_score = 0;
     
         struct ofputil_bucket *bucket;
