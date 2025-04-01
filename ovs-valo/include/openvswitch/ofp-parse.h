@@ -25,6 +25,7 @@
 #include "openvswitch/compiler.h"
 #include "openvswitch/types.h"
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -42,6 +43,9 @@ struct ofputil_bundle_msg;
 struct ofputil_tlv_table_mod;
 struct simap;
 enum ofputil_protocol;
+
+/* to select technique. 0.ovs 1.valo 2.wcmp 3.wrr 4.random */
+extern int technique; 
 
 char *parse_ofp_str(struct ofputil_flow_mod *, int command, const char *str_,
                     const struct ofputil_port_map *,
