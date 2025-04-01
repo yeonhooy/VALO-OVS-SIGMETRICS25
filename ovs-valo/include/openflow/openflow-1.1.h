@@ -369,12 +369,16 @@ struct ofp11_bucket {
     ovs_be32 watch_group;            /* Group whose state affects whether this
                                         bucket is live. Only required for fast
                                         failover groups. */
+
+
+    /*wrr*/
+    ovs_be32 select_count;
     uint8_t pad[4];
     /* struct ofp_action_header actions[0]; The action length is inferred
                                             from the length field in the
                                             header. */
 };
-OFP_ASSERT(sizeof(struct ofp11_bucket) == 16);
+OFP_ASSERT(sizeof(struct ofp11_bucket) == 20);
 
 /* Queue configuration for a given port. */
 struct ofp11_queue_get_config_reply {
