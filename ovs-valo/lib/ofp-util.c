@@ -51,6 +51,7 @@
 #include "unaligned.h"
 #include "util.h"
 #include "uuid.h"
+#include "ofp-parse.c"
 
 /* VALO-OVS: Add header file */
 #include <math.h>
@@ -9065,7 +9066,7 @@ ofputil_decode_group_stats_reply(struct ofpbuf *msg,
 
 static void
 ofputil_put_ofp11_bucket(const struct ofputil_bucket *bucket,
-                         struct ofpbuf *openflow, enum ofp_version ofp_version, bool log)
+                         struct ofpbuf *openflow, enum ofp_version ofp_version)
 {
     struct ofp11_bucket *ob;
     size_t start;
@@ -9079,6 +9080,7 @@ ofputil_put_ofp11_bucket(const struct ofputil_bucket *bucket,
     ob->weight = htons(bucket->weight);
     ob->watch_port = ofputil_port_to_ofp11(bucket->watch_port);
     ob->watch_group = htonl(bucket->watch_group);
+    ob->select_count = htonl(bucket->select_count);
 }
 
 static void
@@ -9840,68 +9842,6 @@ mod_weight(int paths, int *origin_weight)
 }
 
 
-float CalculateDelta(int * G, int *GPrime, int NumberOfPorts, int sumOfG, int sumOfGPrime){
-    float delta;
-    float maxDelta = -1;
-    for (int i=0;i<NumberOfPorts;i++){
-        delta = (float)(GPrime[i]*sumOfG)/(G[i]*sumOfGPrime);
-        if (delta > maxDelta) maxDelta = delta;
-    }
-    return maxDelta;
-}
-int ChoosePortToUpdate(int * G, int * GPrime, int NumberOfPorts, int sumOfG, int sumOfGPrime){
-    double min_oversub = 999999999;
-    double oversub;
-    int index = -1;
-    for (int i=0;i<NumberOfPorts;i++){
-        oversub = (double)((GPrime[i]+1)*sumOfG)/((sumOfGPrime+1)*G[i]);
-        if (min_oversub > oversub){
-            min_oversub = oversub;
-            index = i;
-        }
-    }
-    return index;
-}
-/* WCMP: Reduce weights*/
-static int *
-reduce_weight(int paths,int *origin_weight){
-    int * real_weights = (int *)malloc(sizeof(int) * paths);
-    int * reduced_weights = (int *)malloc(sizeof(int) * paths);
-    // initialize weights by 1 
-    for (int i=0;i<paths;i++){
-        reduced_weights[i]=1; 
-    }
-    int sumOfReducedWeight = 1 * paths;
-    // copy original weight & calculate sum
-    int sumOfOriginWeight = 0;
-    for (int i=0;i<paths;i++){
-        real_weights[i] = origin_weight[i];
-        sumOfOriginWeight += origin_weight[i]; 
-    }
-
-    float thetaMax = 1.1; // maximum oversubscription limit
-    int portToUpdate;
-    bool failToUpdate = false;
-    while (CalculateDelta(real_weights, reduced_weights, paths, sumOfOriginWeight, sumOfReducedWeight) > thetaMax){
-        portToUpdate = ChoosePortToUpdate(real_weights,reduced_weights,paths,sumOfOriginWeight,sumOfReducedWeight);
-        reduced_weights[portToUpdate] = reduced_weights[portToUpdate]+1;
-        sumOfReducedWeight++;  
-        if (sumOfReducedWeight >= sumOfOriginWeight){
-            failToUpdate = true;
-            break;
-        }
-    }
-    if (!failToUpdate){
-        for (int i=0;i<paths;i++){
-            real_weights[i] = reduced_weights[i];
-        }
-    }
-    
-    free(reduced_weights);
-
-    return real_weights;
-}
-
 /* Table fitting*/
 static int *
 table_fitting(int paths,int *origin_weight){
@@ -9916,7 +9856,6 @@ table_fitting(int paths,int *origin_weight){
         sumOfweights += origin_weight[i];
     }
 
-    // (2) while loop (algorithm 3 line 2~19)
     while (sumOfreducedWeights > tableSizeT){
         int nonReducibleSize = 0;
         int newSumOfreducedWeights = 0;
@@ -9938,60 +9877,9 @@ table_fitting(int paths,int *origin_weight){
         }
         sumOfreducedWeights = newSumOfreducedWeights;
     }
-    // // (3) (algorithm 3 line 20~31)
-    // // G'': reducedWeightsFinal
-    // uint16_t remainingSize = tableSizeT - sumOfreducedWeights;
-    // float min_oversub = CalculateDelta(weights,reducedWeights, paths, sumOfweights, sumOfreducedWeights);
-    // uint16_t * reducedWeightsFinal = (uint16_t *)malloc(sizeof(uint16_t) * paths);
-    // for (int i=0;i<paths;i++){
-    //     reducedWeightsFinal[i] = reducedWeights[i];
-    // }
-    // for (int i=0;i<remainingSize;i++){
-    //     int index = ChoosePortToUpdate(weights,reducedWeights,paths,sumOfweights,sumOfreducedWeights);
-    //     reducedWeights[index] = reducedWeights[index] + 1;
-    //     sumOfreducedWeights++;
-    //     float new_oversub = CalculateDelta(weights,reducedWeights, paths, sumOfweights, sumOfreducedWeights);
-    //     if (min_oversub > new_oversub){
-    //         for (int j=0;j<paths;j++){
-    //             reducedWeightsFinal[j] = reducedWeights[j];
-    //             min_oversub = new_oversub;
-    //         }
-    //     }
-    // }
-    // for (int i=0;i<paths;i++){
-    //     weights[i] = reducedWeights[i];
-    // }
-
-    //free(reducedWeights);
-    // free(reducedWeightsFinal);
 
     return reducedWeights;
 }
-
-
-/* ECMP*/
-static int *
-ecmp_equal_weight(int paths,int *origin_weight){
-    int * weights = (int *)malloc(sizeof(int) * paths);
-    // initialize weights by 1 
-    for (int i=0;i<paths;i++){
-        weights[i]=1; 
-    }
-    return weights;
-}
-
-/* WRR*/
-static int *
-wrr_weight(int paths,int *origin_weight){
-    int * weights = (int *)malloc(sizeof(int) * paths);
-    // initialize weights by 1 
-    for (int i=0;i<paths;i++){
-        weights[i]=1; 
-    }
-    return weights;
-}
-
-
 
 static struct ofpbuf *
 ofputil_encode_ofp11_group_mod(enum ofp_version ofp_version,
@@ -10020,38 +9908,37 @@ ofputil_encode_ofp11_group_mod(enum ofp_version ofp_version,
     }
 
     int * newCalculatePointer;
-    if (gm->valo) {
+    if (technique == 1) { // valo
         newCalculatePointer = mod_weight(paths, bucket_weight);
     }
-    else if (gm->wcmp) {
-        //newCalculatePointer = reduce_weight(paths, bucket_weight);
+    else if (technique == 2) { // wcmp
         newCalculatePointer = table_fitting(paths, bucket_weight);
     }
-    else if (gm->random) {
-        newCalculatePointer = random_mod_weight(paths, bucket_weight);
-    }
-    else if (gm->ecmp) {
-        newCalculatePointer = ecmp_equal_weight(paths, bucket_weight);
-    }
-    else if (gm->wrr){
+    else if (technique == 3){ // wrr
         newCalculatePointer = bucket_weight;
     }
+    else if (technique == 4) { // random
+        newCalculatePointer = random_mod_weight(paths, bucket_weight);
+    }
+
 
     paths = 0;
     LIST_FOR_EACH (bucket, list_node, &gm->buckets) {
-        if (gm->valo) {
+        if (technique == 1) { // valo
             bucket->weight = newCalculatePointer[paths++];
         }
-        if (gm->wcmp){
+        else if (technique == 2){ // wcmp
             bucket->weight = newCalculatePointer[paths++];
         }
-        if (gm->random) {
+        else if (technique == 3){ // wrr
+            bucket->weight = newCalculatePointer[paths++];
+            bucket->select_count = 0;
+        }
+        else if (technique == 4) { // random
             bucket->weight = newCalculatePointer[paths++];
         }
-        if (gm->wrr){
-            bucket->weight = newCalculatePointer[paths++];
-        }
-        ofputil_put_ofp11_bucket(bucket, b, ofp_version, gm->log);
+
+        ofputil_put_ofp11_bucket(bucket, b, ofp_version);
     }
 
     free(bucket_weight);
