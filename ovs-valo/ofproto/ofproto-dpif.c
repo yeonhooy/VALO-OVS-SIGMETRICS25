@@ -4713,6 +4713,18 @@ group_construct_stats(struct group_dpif *group)
         bucket->stats.packet_count = 0;
         bucket->stats.byte_count = 0;
     }
+    /* wrr */
+    ovs_list_init(&group->table);
+}
+
+/* wrr */
+void add_table_node(struct group_dpif * group, uint32_t key, struct ofputil_bucket *bucket) 
+   OVS_REQUIRES(group->stats_mutex) 
+{
+    table_node_t *new_node = (table_node_t*)xmalloc(sizeof(table_node_t));
+    new_node->key = key;
+    new_node->bucket = bucket; 
+    ovs_list_push_back(&group->table, &new_node->list_node);
 }
 
 void
