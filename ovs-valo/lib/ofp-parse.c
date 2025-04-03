@@ -42,7 +42,6 @@
 #include "socket-util.h"
 #include "util.h"
 
-technique = 0; // ovs 
 
 /* Parses 'str' as an 8-bit unsigned integer into '*valuep'.
  *
@@ -1578,6 +1577,12 @@ parse_ofp_group_mod_str__(struct ofputil_group_mod *gm, int command,
     struct ofputil_bucket *bucket;
     char *error = NULL;
 
+    /* VALO-OVS: Add group rule parsing code for valo, wcmp, err, random enable parameters */
+    bool had_valo = false;
+    bool had_wcmp = false;
+    bool had_wrr = false;
+    bool had_random = false;
+
     *usable_protocols = OFPUTIL_P_OF11_UP;
 
     if (command == -2) {
@@ -1769,40 +1774,44 @@ parse_ofp_group_mod_str__(struct ofputil_group_mod *gm, int command,
         /* VALO-OVS: Add group rule parsing code for valo,log enable parameters */
         } else if (!strcmp(name, "valo")) {
             if (!strcmp(value, "true")) {
-                technique = 1;
+                gm->valo = true;
             } else if (!strcmp(value, "false")) {
-                // empty
+                gm->valo = false;
             } else {
                 error = xasprintf("invalid valo parameter %s", value);
                 goto out;
             }
+            had_valo = true;
         } else if (!strcmp(name, "wcmp")) {
             if (!strcmp(value, "true")) {
-                technique = 2;
+                gm->wcmp = true;
             } else if (!strcmp(value, "false")) {
-                // empty
+                gm->wcmp = false;
             } else {
                 error = xasprintf("invalid wcmp parameter %s", value);
                 goto out;
             }
+            had_wcmp = true;
         } else if (!strcmp(name, "wrr")) {
             if (!strcmp(value, "true")) {
-                technique = 3;
+                gm->wrr = true;
             } else if (!strcmp(value, "false")) {
-                // empty
+                gm->wrr = false;
             } else {
                 error = xasprintf("invalid wrr parameter %s", value);
                 goto out;
             }
+            had_wrr = true;            
         } else if (!strcmp(name, "random")) {
             if (!strcmp(value, "true")) {
-                technique = 4;
+                gm->random = true;
             } else if (!strcmp(value, "false")) {
-                // empty
+                gm->random = false;
             } else {
-                error = xasprintf("invalid log parameter %s", value);
+                error = xasprintf("invalid random parameter %s", value);
                 goto out;
             }
+            had_random = true;
         } else {
             error = xasprintf("unknown keyword %s", name);
             goto out;

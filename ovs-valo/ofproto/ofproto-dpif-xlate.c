@@ -58,6 +58,7 @@
 #include "openvswitch/ofp-actions.h"
 #include "openvswitch/ofp-ed-props.h"
 #include "openvswitch/vlog.h"
+
 #include "ovs-lldp.h"
 #include "ovs-router.h"
 #include "packets.h"
@@ -66,7 +67,6 @@
 #include "tunnel.h"
 #include "util.h"
 #include "uuid.h"
-#include "include/openvswitch/ofp-parse.h"
 
 COVERAGE_DEFINE(xlate_actions);
 COVERAGE_DEFINE(xlate_actions_oversize);
@@ -1770,12 +1770,16 @@ group_best_live_bucket(const struct xlate_ctx *ctx,
                        const struct group_dpif *group,
                        uint32_t basis)
 {
-    FILE * fptr = fopen("/home/libera1/hwiju/VALO/script-upload/technique_test.txt","a");
-    fprintf(fptr, "selected technique %d \n", technique);
-    fclose(fptr);
+    struct ofputil_bucket * first_bucket = ovs_list_front(&group->up.buckets);
+    uint32_t technique = first_bucket->technique; 
+
     struct ofputil_bucket *best_bucket = NULL;
-    if (technique == 3){
+
+    /* wrr code */
+    if (technique == 3)
+    {
         struct ofputil_bucket *bucket;
+    
         if (!ovs_list_is_empty(&group->table)) {
             table_node_t * cur;
             LIST_FOR_EACH(cur, list_node, &group->table) {
@@ -1784,6 +1788,7 @@ group_best_live_bucket(const struct xlate_ctx *ctx,
                 }
             }
         }
+    
         bool selected = false;
         LIST_FOR_EACH(bucket, list_node, &group->up.buckets) {
             if (bucket_is_alive(ctx, bucket, 0)) {
@@ -1794,7 +1799,6 @@ group_best_live_bucket(const struct xlate_ctx *ctx,
                 }
             }
         }
-        
         if (!best_bucket) {
             LIST_FOR_EACH(bucket, list_node, &group->up.buckets) {
                 if (bucket_is_alive(ctx, bucket, 0)) {
@@ -1808,13 +1812,13 @@ group_best_live_bucket(const struct xlate_ctx *ctx,
             }
         }
     
-        if (best_bucket){      
+        if (best_bucket){       
             add_table_node(group, basis, best_bucket);
         }
     }
     else {
         uint32_t best_score = 0;
-    
+
         struct ofputil_bucket *bucket;
         LIST_FOR_EACH (bucket, list_node, &group->up.buckets) {
             if (bucket_is_alive(ctx, bucket, 0)) {

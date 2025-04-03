@@ -4713,7 +4713,7 @@ group_construct_stats(struct group_dpif *group)
         bucket->stats.packet_count = 0;
         bucket->stats.byte_count = 0;
     }
-    /* wrr */
+    /*wrr*/
     ovs_list_init(&group->table);
 }
 

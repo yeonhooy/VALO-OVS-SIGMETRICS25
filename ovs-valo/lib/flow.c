@@ -2107,9 +2107,7 @@ flow_hash_symmetric_l4(const struct flow *flow, uint32_t basis)
             fields.tp_port = flow->tp_src ^ flow->tp_dst;
         }
     }
-
     uint32_t jhash_result = jhash_bytes(&fields, sizeof fields, basis);
-
 
     return jhash_result;
 }

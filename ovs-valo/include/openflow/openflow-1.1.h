@@ -371,14 +371,17 @@ struct ofp11_bucket {
                                         failover groups. */
 
 
-    /*wrr*/
+    /* wrr */
     ovs_be32 select_count;
+    /* to select technique */
+    ovs_be32 technique;
+
     uint8_t pad[4];
     /* struct ofp_action_header actions[0]; The action length is inferred
                                             from the length field in the
                                             header. */
 };
-OFP_ASSERT(sizeof(struct ofp11_bucket) == 20);
+OFP_ASSERT(sizeof(struct ofp11_bucket) == 24);
 
 /* Queue configuration for a given port. */
 struct ofp11_queue_get_config_reply {

@@ -56,17 +56,20 @@
 #include "ofproto-provider.h"
 #include "util.h"
 #include "ovs-thread.h"
-
+#include "openvswitch/list.h" // table
 struct dpif_flow_stats;
 struct ofproto_async_msg;
 struct ofproto_dpif;
 struct uuid;
 struct xlate_cache;
+struct table_node_t;
 
 /* Number of implemented OpenFlow tables. */
 enum { N_TABLES = 255 };
 enum { TBL_INTERNAL = N_TABLES - 1 };    /* Used for internal hidden rules. */
 BUILD_ASSERT_DECL(N_TABLES >= 2 && N_TABLES <= 255);
+
+
 
 struct rule_dpif {
     struct rule up;
@@ -126,6 +129,7 @@ typedef struct table_node {
     struct ofputil_bucket *bucket;     
     struct ovs_list list_node; 
 } table_node_t;
+
 
 struct group_dpif {
     struct ofgroup up;

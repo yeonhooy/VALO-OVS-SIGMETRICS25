@@ -1259,6 +1259,8 @@ struct ofputil_bucket {
     
     /*wrr*/
     uint32_t select_count;  
+    /* to select technique */
+    uint32_t technique;
 
     struct bucket_counter stats;
 };
@@ -1282,6 +1284,12 @@ struct ofputil_group_mod {
                                    * execution.*/
     struct ovs_list buckets;      /* Contains "struct ofputil_bucket"s. */
     struct ofputil_group_props props; /* Group properties. */
+
+    /* VALO-OVS: valo, wcmp, wrr, random enable parameters */
+    bool valo;
+    bool wcmp;
+    bool wrr;
+    bool random;
 };
 
 /* Group stats reply, independent of protocol. */

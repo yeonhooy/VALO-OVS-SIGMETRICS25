@@ -44,6 +44,7 @@
 #include "openvswitch/ofpbuf.h"
 #include "openvswitch/type-props.h"
 #include "openvswitch/vlog.h"
+
 #include "openflow/intel-ext.h"
 #include "packets.h"
 #include "random.h"
@@ -51,7 +52,6 @@
 #include "unaligned.h"
 #include "util.h"
 #include "uuid.h"
-#include "ofp-parse.c"
 
 /* VALO-OVS: Add header file */
 #include <math.h>
@@ -9080,7 +9080,10 @@ ofputil_put_ofp11_bucket(const struct ofputil_bucket *bucket,
     ob->weight = htons(bucket->weight);
     ob->watch_port = ofputil_port_to_ofp11(bucket->watch_port);
     ob->watch_group = htonl(bucket->watch_group);
+    /*wrr*/
     ob->select_count = htonl(bucket->select_count);
+    /* to select technique */
+    ob->technique = htonl(bucket->technique);
 }
 
 static void
@@ -9274,6 +9277,10 @@ ofputil_pull_ofp11_buckets(struct ofpbuf *msg, size_t buckets_length,
 
         bucket = xzalloc(sizeof *bucket);
         bucket->weight = ntohs(ob->weight);
+
+        bucket->select_count = htonl(ob->select_count);
+        bucket->technique = htonl(ob->technique);
+
         error = ofputil_port_from_ofp11(ob->watch_port, &bucket->watch_port);
         if (error) {
             ofpbuf_uninit(&ofpacts);
@@ -9842,7 +9849,6 @@ mod_weight(int paths, int *origin_weight)
 }
 
 
-/* Table fitting*/
 static int *
 table_fitting(int paths,int *origin_weight){
     int tableSizeT;
@@ -9856,6 +9862,7 @@ table_fitting(int paths,int *origin_weight){
         sumOfweights += origin_weight[i];
     }
 
+    // (2) while loop (algorithm 3 line 2~19)
     while (sumOfreducedWeights > tableSizeT){
         int nonReducibleSize = 0;
         int newSumOfreducedWeights = 0;
@@ -9881,6 +9888,7 @@ table_fitting(int paths,int *origin_weight){
     return reducedWeights;
 }
 
+
 static struct ofpbuf *
 ofputil_encode_ofp11_group_mod(enum ofp_version ofp_version,
                                const struct ofputil_group_mod *gm)
@@ -9905,39 +9913,36 @@ ofputil_encode_ofp11_group_mod(enum ofp_version ofp_version,
     LIST_FOR_EACH (bucket, list_node, &gm->buckets) {
         bucket_weight[paths] = bucket->weight;
         paths++;
+
     }
 
     int * newCalculatePointer;
-    if (technique == 1) { // valo
+    uint32_t technique = 0; // ovs as default
+    if (gm->valo) {
+        technique = 1;
         newCalculatePointer = mod_weight(paths, bucket_weight);
     }
-    else if (technique == 2) { // wcmp
+    else if (gm->wcmp) {
+        technique = 2;
         newCalculatePointer = table_fitting(paths, bucket_weight);
     }
-    else if (technique == 3){ // wrr
+    else if (gm->wrr){
+        technique = 3; 
         newCalculatePointer = bucket_weight;
     }
-    else if (technique == 4) { // random
+    else if (gm->random) { 
+        technique = 4;
         newCalculatePointer = random_mod_weight(paths, bucket_weight);
     }
 
 
     paths = 0;
     LIST_FOR_EACH (bucket, list_node, &gm->buckets) {
-        if (technique == 1) { // valo
+        if (gm->valo || gm->wcmp || gm->random || gm->wrr){
             bucket->weight = newCalculatePointer[paths++];
         }
-        else if (technique == 2){ // wcmp
-            bucket->weight = newCalculatePointer[paths++];
-        }
-        else if (technique == 3){ // wrr
-            bucket->weight = newCalculatePointer[paths++];
-            bucket->select_count = 0;
-        }
-        else if (technique == 4) { // random
-            bucket->weight = newCalculatePointer[paths++];
-        }
-
+        bucket->technique = technique;
+        bucket->select_count = 0;
         ofputil_put_ofp11_bucket(bucket, b, ofp_version);
     }
 
@@ -9947,7 +9952,6 @@ ofputil_encode_ofp11_group_mod(enum ofp_version ofp_version,
     ogm->command = htons(gm->command);
     ogm->type = gm->type;
     ogm->group_id = htonl(gm->group_id);
-
     return b;
 }
 
