@@ -68,4 +68,16 @@ The repository is organized as follows:
 - Note that Scoring is a default implementation of OVS, so we just use the default implementation of OVS.
 
 - We confirm that no other Open vSwitch code has been modified, except for the files listed below.<br>
+* Our changes: `ovs-valo/`
+    * ovs-valo/lib/ofp-util.c
+    * ovs-valo/lib/ofp-parse.c
+    * ovs-valo/lib/flow.c
+    * ovs-valo/ofproto/ofproto-dpif-xlate.c
+    * ovs-valo/ofproto/ofproto-dpif-xlate.h
+    * ovs-valo/ofproto/ofproto-dpif.c
+    * ovs-valo/ofproto/ofproto-dpif.h
+    * ovs-valo/include/openvswitch/ofp-util.h
+    * ovs-valo/include/openvswitch/ofp-parse.h
+    * ovs-valo/include/openflow/openflow-1.1.h
+  
 
