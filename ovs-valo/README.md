@@ -52,7 +52,7 @@ The repository is organized as follows:
     - WRR 
     $ ovs-ofctl -O OpenFlow13 add-group <switch-name> group_id=<groud-id>,type=select,valo=false,wrr=true,wcmp=false,random=false
     
-    - Scoring 
+    - Scoring (OVS default)
     $ ovs-ofctl -O OpenFlow13 add-group <switch-name> group_id=<groud-id>,type=select,valo=false,wrr=false,wcmp=false,random=false
     
     - WCMP 
