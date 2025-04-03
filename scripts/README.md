@@ -49,4 +49,4 @@ $ `git clone https://github.com/HKUST-SING/TrafficGenerator.git`
 
 #### 2-2. How to use
 You can use the VALO implementation and others by passing boolean values as arguments to `main.py`   
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$ `sudo main.py <server#> <client#> <serverEdge#> <clientEdge#> <paths#> [weights ...] <valo> <wcmp> <random> <wrr> <port#> <flowsPerPair#>`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$ `sudo python3 main.py <server#> <client#> <serverEdge#> <clientEdge#> <paths#> [weights ...] <valo> <wcmp> <random> <wrr> <port#> <flowsPerPair#>`
