@@ -69,7 +69,3 @@ The repository is organized as follows:
 
 - We confirm that no other Open vSwitch code has been modified, except for the files listed below.<br>
 
-* Our changes: `ovs-valo/`
-    * ovs-valo/lib/ofp-util.c
-    * ovs-valo/lib/ofp-parse.c
-    * ovs-valo/include/openvswitch/ofp-util.h
