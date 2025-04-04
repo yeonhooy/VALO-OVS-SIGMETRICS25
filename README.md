@@ -18,7 +18,7 @@ The repository is organized as follows:
 ```
 @article{VALO2025,
   title={Revisiting Traffic Splitting for Software Switch in Datacenter},
-  author={Yeonho Yoo, Gyeongsik Yang, Changyong Shin, Hwiju Choi, Wonmi Choi, Zhixiong Niu, and Chuck Yoo},
+  author={Yeonho Yoo, Gyeongsik Yang, Changyong Shin, Hwiju Cho, Wonmi Choi, Zhixiong Niu, and Chuck Yoo},
   booktitle={SIGMETRICS 2025},
   year={2025}
 }
